@@ -15,6 +15,8 @@ var path = require('path');
 var express = require('express');
 var bodyParser = require('body-parser');
 var app = express();
+var MongoClient = require('mongodb').MongoClient;
+var db;
 
 var COMMENTS_FILE = path.join(__dirname, 'comments.json');
 
@@ -36,42 +38,27 @@ app.use(function(req, res, next) {
 });
 
 app.get('/api/comments', function(req, res) {
-  fs.readFile(COMMENTS_FILE, function(err, data) {
-    if (err) {
-      console.error(err);
-      process.exit(1);
-    }
-    res.json(JSON.parse(data));
+  db.collection("comments").find({}).toArray().then(function(docs) {
+    res.json(docs);
   });
 });
 
 app.post('/api/comments', function(req, res) {
-  fs.readFile(COMMENTS_FILE, function(err, data) {
-    if (err) {
-      console.error(err);
-      process.exit(1);
-    }
-    var comments = JSON.parse(data);
-    // NOTE: In a real implementation, we would likely rely on a database or
-    // some other approach (e.g. UUIDs) to ensure a globally unique id. We'll
-    // treat Date.now() as unique-enough for our purposes.
-    var newComment = {
-      id: Date.now(),
-      author: req.body.author,
-      text: req.body.text,
-    };
-    comments.push(newComment);
-    fs.writeFile(COMMENTS_FILE, JSON.stringify(comments, null, 4), function(err) {
-      if (err) {
-        console.error(err);
-        process.exit(1);
-      }
-      res.json(comments);
-    });
+  db.collection("comments").insert({id: Date.now(), author: req.body.author, text: req.body.text}, function(err, docs) {
+    res.json(docs);
   });
 });
 
 
-app.listen(app.get('port'), function() {
-  console.log('Server started: http://localhost:' + app.get('port') + '/');
+MongoClient.connect("mongodb://localhost:27017/react_tutorial_mongo", function(err, database) {
+  if (err) throw err;
+
+  db = database;
+  //create collection or ignore if already exists
+  //The {strict:true} option will make the method return an error if the collection already exists.
+  db.createCollection('comments', {strict:true}, function(err, collection) {});
+  // Start the application after the database connection is ready
+  app.listen(app.get('port'), function () {
+    console.log('Server started: http://localhost:' + app.get('port') + '/');
+  });
 });
